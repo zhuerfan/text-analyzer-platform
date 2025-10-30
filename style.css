@@ -240,17 +240,39 @@ tr:hover {
     height: 100%;
 }
 
+/* 图表控制区域样式 */
+.chart-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
 .range-control {
-  display: flex;
-  align-items: center;
-  padding: 5px 10px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #ccc;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .range-control input[type=range] {
-  margin-left: 10px;
-  width: 200px;
+    width: 200px;
+}
+
+/* 更新视图按钮样式 */
+.update-view-btn {
+    padding: 6px 12px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.update-view-btn:hover {
+    background: #45a049;
 }
 
 #charCloud, #barChart, #summaryChart {
@@ -466,7 +488,7 @@ input[type="text"] {
 .download-btn {
     position: absolute;
     top: 10px;
-    right: 10px;
+    right: 80px;
     z-index: 1000;
     padding: 5px 10px;
     background: #f0f0f0;

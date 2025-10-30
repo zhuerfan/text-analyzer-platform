@@ -163,7 +163,7 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     renderCharFreqTable(charFreqData);
     renderDetailedContent();
     renderSummaryStats();
-    updateCharts();
+    initCharts(); // 初始化图表但不立即渲染
     loadCheckedState();
     positionDownloadButtons();
 
@@ -234,7 +234,6 @@ function renderCharFreqTable(data) {
         const cb = tr.querySelector('input');
         cb.addEventListener('change', (e) => {
             handleCheckboxChange(e, idx);
-            updateCharts();
             saveCheckedState();
         });
         tr.addEventListener('click', (e) => {
@@ -267,7 +266,6 @@ function handleCheckboxChange(e, currentIndex) {
 document.getElementById('selectAll').addEventListener('change', function () {
     const checked = this.checked;
     document.querySelectorAll('.charCheck').forEach(cb => cb.checked = checked);
-    updateCharts();
     saveCheckedState();
 });
 
@@ -286,43 +284,214 @@ function getCheckedChars() {
     return checked;
 }
 
-// ============ 修改单字汇总统计图渲染逻辑 ============
-function renderSummaryChart(checkedChars) {
-  const container = document.getElementById("summaryChart");
-  if (!charts.summaryChart) {
-    charts.summaryChart = echarts.init(container);
-  }
-  const chart = charts.summaryChart;
-  const rangeInput = document.getElementById("summaryRange");
+// ====== 初始化图表 ======
+function initCharts() {
+    // 为所有图表容器创建ECharts实例
+    charts.charCloud = echarts.init(document.getElementById('charCloud'));
+    charts.barChart = echarts.init(document.getElementById('barChart'));
+    charts.cohesionChart = echarts.init(document.getElementById('networkChartContainer'));
+    charts.summaryChart = echarts.init(document.getElementById('summaryChart'));
 
-  const data = checkedChars.map(item => ({
-    name: item.char,
-    value: item.freq
-  }));
-
-  // 每次滑动条变化时重新渲染范围数据
-  const render = () => {
-    const start = parseInt(rangeInput.value);
-    const perPage = 20;
-    const shown = data.slice(start, start + perPage);
-    chart.setOption({
-      title: { text: `单字汇总统计 (${start + 1} - ${start + shown.length})` },
-      xAxis: { type: 'category', data: shown.map(i => i.name), axisLabel: { rotate: 45 } },
-      yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: shown.map(i => i.value) }],
-      tooltip: { trigger: 'axis' }
-    });
-  };
-
-  rangeInput.max = Math.max(0, data.length - 20);
-  rangeInput.oninput = render;
-  render();
+    // 初始渲染当前激活的图表
+    updateActiveChart();
 }
 
-// ====== 更新图表 ======
-function updateCharts() {
-    renderCharts(getCheckedChars());
-    renderSummaryChart(getCheckedChars());
+// ====== 更新当前激活的图表 ======
+function updateActiveChart() {
+    const activeTab = document.querySelector('#chartTabs button.active').dataset.target;
+    const checkedChars = getCheckedChars();
+
+    switch (activeTab) {
+        case 'charCloud':
+            renderCharCloud(checkedChars);
+            break;
+        case 'barChart':
+            renderBarChart(checkedChars);
+            break;
+        case 'cohesionChart':
+            renderCohesionChart(checkedChars);
+            break;
+        case 'summaryChart':
+            renderSummaryChart(checkedChars);
+            break;
+    }
+}
+
+// ====== 渲染单字云图 ======
+function renderCharCloud(checkedChars) {
+    const container = document.getElementById('charCloud');
+    if (!charts.charCloud) {
+        charts.charCloud = echarts.init(container);
+    }
+    const chart = charts.charCloud;
+
+    // 全局最大字频（防 0）
+    const globalMaxFreq = Math.max(...charFreqData.map(d => d.freq), 1);
+
+    // 选中字 + 两个不可见锚点（把缩放固定到 [0, globalMaxFreq]）
+    const wcData = [
+        ...checkedChars.map(d => ({ name: d.char, value: d.freq })),
+        { name: '\u200B', value: 0, textStyle: { color: 'rgba(0,0,0,0)' }, tooltip: { show: false } },
+        { name: '\u200B\u200B', value: globalMaxFreq, textStyle: { color: 'rgba(0,0,0,0)' }, tooltip: { show: false } }
+    ];
+
+    chart.setOption({
+        series: [{
+            type: 'wordCloud',
+            gridSize: 8,
+            sizeRange: [12, 100],
+            rotationRange: [0, 0],
+            shape: 'circle',
+            textStyle: { color: () => chinaColors[Math.floor(Math.random() * chinaColors.length)] },
+            data: wcData
+        }]
+    });
+
+    chart.off('click');
+    chart.on('click', p => {
+        // 忽略不可见锚点
+        if (p.name && p.name.trim() !== '') {
+            highlightCharFromLeft(p.name);
+            if (charts.cohesionChart) {
+                highlightNodeAndRelated(p.name);
+                showCohesionStats(p.name);
+            }
+        }
+    });
+}
+
+// ====== 渲染柱状图 ======
+function renderBarChart(checkedChars) {
+    const container = document.getElementById('barChart');
+    if (!charts.barChart) {
+        charts.barChart = echarts.init(container);
+    }
+    const chart = charts.barChart;
+
+    const topData = checkedChars.slice().sort((a, b) => b.freq - a.freq).slice(0, 100);
+    chart.setOption({
+        grid: { left: 50, right: 50, top: 50, bottom: 80 },
+        xAxis: { type: 'category', data: topData.map(d => d.char), axisLabel: { interval: 0, rotate: 45, fontSize: 12 } },
+        yAxis: { type: 'value' },
+        series: [{ type: 'bar', data: topData.map(d => d.freq) }],
+        dataZoom: [{ type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 20 }]
+    });
+
+    chart.off('click');
+    chart.on('click', p => {
+        highlightCharFromLeft(p.name);
+        if (charts.cohesionChart) {
+            highlightNodeAndRelated(p.name);
+            showCohesionStats(p.name);
+        }
+    });
+}
+
+// ====== 渲染单字黏着度汇总统计图 ======
+function renderSummaryChart(checkedChars) {
+    const container = document.getElementById("summaryChart");
+    if (!charts.summaryChart) {
+        charts.summaryChart = echarts.init(container);
+    }
+    const chart = charts.summaryChart;
+    const rangeInput = document.getElementById("summaryRange");
+
+    // 从charSummaryData中获取勾选字符的汇总数据
+    const checkedCharsSet = new Set(checkedChars.map(item => item.char));
+    const summaryData = charSummaryData
+        .filter(item => checkedCharsSet.has(item.char))
+        .sort((a, b) => b.total_cohesion - a.total_cohesion);
+
+    const data = summaryData.map(item => ({
+        char: item.char,
+        left_cohesion: item.left_cohesion_count,
+        right_cohesion: item.right_cohesion_count,
+        total_cohesion: item.total_cohesion
+    }));
+
+    // 每次滑动条变化时重新渲染范围数据
+    const render = () => {
+        const start = parseInt(rangeInput.value);
+        const perPage = 20;
+        const shown = data.slice(start, start + perPage);
+
+        chart.setOption({
+            title: {
+                text: `单字黏着度汇总统计 (${start + 1} - ${start + shown.length})`,
+                left: 'center',
+                top: '10px'
+            },
+            legend: {
+                data: ['左邻黏着度', '右邻黏着度', '总黏着度'],
+                top: '40px',
+                left: 'center'
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                top: '80px',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'value',
+                name: '黏着度'
+            },
+            yAxis: {
+                type: 'category',
+                data: shown.map(i => i.char),
+                axisLabel: {
+                    rotate: 45
+                }
+            },
+            series: [
+                {
+                    name: '左邻黏着度',
+                    type: 'bar',
+                    stack: 'total',
+                    emphasis: { focus: 'series' },
+                    data: shown.map(i => i.left_cohesion)
+                },
+                {
+                    name: '右邻黏着度',
+                    type: 'bar',
+                    stack: 'total',
+                    emphasis: { focus: 'series' },
+                    data: shown.map(i => i.right_cohesion)
+                },
+                {
+                    name: '总黏着度',
+                    type: 'bar',
+                    label: {
+                        show: true,
+                        position: 'right'
+                    },
+                    data: shown.map(i => i.total_cohesion)
+                }
+            ],
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                }
+            }
+        });
+    };
+
+    rangeInput.max = Math.max(0, data.length - 20);
+    rangeInput.oninput = render;
+
+    // 初始渲染
+    render();
+
+    chart.off('click');
+    chart.on('click', params => {
+        if (params.componentType === 'series' && params.seriesType === 'bar') {
+            const char = data[parseInt(rangeInput.value) + params.dataIndex].char;
+            highlightCharFromLeft(char);
+            showCohesionStats(char);
+        }
+    });
 }
 
 // ====== 渲染单字序列 ======
@@ -560,103 +729,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ====== ECharts 图表渲染 ======
-function renderCharts(data) {
-    console.log('开始渲染图表，数据量:', data.length);
-    console.log('当前激活的标签页:', document.querySelector('#chartTabs button.active').dataset.target);
-
-    if (data.length === 0) {
-        console.warn('没有选中的字符数据，图表将为空');
-    }
-    // 单字云图
-    if (document.getElementById('charCloud').classList.contains('active')) {
-        charts.charCloud = echarts.init(document.getElementById('charCloud'));
-
-        // 全局最大字频（防 0）
-        const globalMaxFreq = Math.max(...charFreqData.map(d => d.freq), 1);
-
-        // 选中字 + 两个不可见锚点（把缩放固定到 [0, globalMaxFreq]）
-        const wcData = [
-            ...data.map(d => ({ name: d.char, value: d.freq })),
-            { name: '\u200B', value: 0, textStyle: { color: 'rgba(0,0,0,0)' }, tooltip: { show: false } },
-            { name: '\u200B\u200B', value: globalMaxFreq, textStyle: { color: 'rgba(0,0,0,0)' }, tooltip: { show: false } }
-        ];
-
-        charts.charCloud.setOption({
-            series: [{
-                type: 'wordCloud',
-                gridSize: 8,
-                sizeRange: [12, 100],
-                rotationRange: [0, 0],
-                shape: 'circle',
-                textStyle: { color: () => chinaColors[Math.floor(Math.random() * chinaColors.length)] },
-                data: wcData
-            }]
-        });
-
-        charts.charCloud.off('click');
-        charts.charCloud.on('click', p => {
-            // 忽略不可见锚点
-            if (p.name && p.name.trim() !== '') {
-                highlightCharFromLeft(p.name);
-                if (charts.cohesionChart) {
-                    highlightNodeAndRelated(p.name);
-                    showCohesionStats(p.name);
-                }
-            }
-        });
-    }
-
-    // 柱状图
-    if (document.getElementById('barChart').classList.contains('active')) {
-        charts.barChart = echarts.init(document.getElementById('barChart'));
-        const topData = data.slice().sort((a, b) => b.freq - a.freq).slice(0, 100);
-        charts.barChart.setOption({
-            grid: { left: 50, right: 50, top: 20, bottom: 80 },
-            xAxis: { type: 'category', data: topData.map(d => d.char), axisLabel: { interval: 0, rotate: 45, fontSize: 12 } },
-            yAxis: { type: 'value' },
-            series: [{ type: 'bar', data: topData.map(d => d.freq) }],
-            dataZoom: [{ type: 'slider', show: true, xAxisIndex: 0, start: 0, end: 20 }]
-        });
-        charts.barChart.on('click', p => {
-            highlightCharFromLeft(p.name);
-            if (charts.cohesionChart) {
-                highlightNodeAndRelated(p.name);
-                showCohesionStats(p.name);
-            }
-        });
-    }
-
-    // 黏着度网络图
-    if (document.getElementById('cohesionChart').classList.contains('active')) {
-        renderCohesionChart();
-    }
-
-    // 汇总统计图
-    if (document.getElementById('summaryChart').classList.contains('active')) {
-        renderSummaryChart();
-    }
-    // 在所有图表渲染完成后，确保它们正确调整大小
-    setTimeout(() => {
-        Object.values(charts).forEach(chart => {
-            if (chart && typeof chart.resize === 'function') {
-                chart.resize();
-            }
-        });
-    }, 100);
-}
-
 // ====== 渲染黏着度网络图 ======
-function renderCohesionChart() {
+function renderCohesionChart(checkedChars) {
     if (!charNetworkData || !charNetworkData.nodes || !charNetworkData.links) {
         console.error('网络数据无效');
         return;
     }
 
-    const checkedChars = getCheckedChars().map(item => item.char);
-    const filteredNodes = charNetworkData.nodes.filter(node => checkedChars.includes(node.id));
+    const checkedCharsIds = checkedChars.map(item => item.char);
+    const filteredNodes = charNetworkData.nodes.filter(node => checkedCharsIds.includes(node.id));
     const filteredLinks = charNetworkData.links.filter(link =>
-        checkedChars.includes(link.source) && checkedChars.includes(link.target));
+        checkedCharsIds.includes(link.source) && checkedCharsIds.includes(link.target));
 
     if (charts.cohesionChart) charts.cohesionChart.dispose();
     charts.cohesionChart = echarts.init(document.getElementById('networkChartContainer'));
@@ -787,76 +870,6 @@ function renderCohesionChart() {
         if (charts.cohesionChart) {
             charts.cohesionChart.resize();
             positionDownloadButtons();
-        }
-    });
-}
-
-// ====== 渲染汇总统计图 ======
-function renderSummaryChart() {
-    if (!charSummaryData || charSummaryData.length === 0) return;
-
-    charts.summaryChart = echarts.init(document.getElementById('summaryChart'));
-
-    // 按总黏着度排序
-    const sortedData = charSummaryData.slice().sort((a, b) => b.total_cohesion - a.total_cohesion).slice(0, 20);
-
-    const option = {
-        title: { text: '单字黏着度汇总统计（前20）', left: 'center' },
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'shadow' }
-        },
-        legend: {
-            data: ['左邻黏着度', '右邻黏着度', '总黏着度']
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'value'
-        },
-        yAxis: {
-            type: 'category',
-            data: sortedData.map(d => d.char)
-        },
-        series: [
-            {
-                name: '左邻黏着度',
-                type: 'bar',
-                stack: 'total',
-                emphasis: { focus: 'series' },
-                data: sortedData.map(d => d.left_cohesion_count)
-            },
-            {
-                name: '右邻黏着度',
-                type: 'bar',
-                stack: 'total',
-                emphasis: { focus: 'series' },
-                data: sortedData.map(d => d.right_cohesion_count)
-            },
-            {
-                name: '总黏着度',
-                type: 'bar',
-                label: {
-                    show: true,
-                    position: 'right'
-                },
-                data: sortedData.map(d => d.total_cohesion)
-            }
-        ]
-    };
-
-    charts.summaryChart.setOption(option);
-
-    charts.summaryChart.off('click');
-    charts.summaryChart.on('click', params => {
-        if (params.componentType === 'series' && params.seriesType === 'bar') {
-            const char = sortedData[params.dataIndex].char;
-            highlightCharFromLeft(char);
-            showCohesionStats(char);
         }
     });
 }
@@ -1046,15 +1059,8 @@ document.querySelectorAll('#chartTabs button').forEach(btn => {
         const target = document.getElementById(btn.dataset.target);
         target.classList.add('active');
 
-        if (btn.dataset.target === 'cohesionChart') {
-            document.getElementById('networkChartContainer').style.height = '400px';
-            renderCohesionChart();
-        }
-        if (charts[btn.dataset.target]) {
-            charts[btn.dataset.target].resize();
-        } else {
-            updateCharts();
-        }
+        // 更新当前激活的图表
+        updateActiveChart();
     });
 });
 
@@ -1160,7 +1166,30 @@ document.getElementById('clearHighlights').addEventListener('click', clearHighli
 
 // ====== 更新网络按钮 ======
 document.getElementById('updateNetwork').addEventListener('click', () => {
-    renderCohesionChart();
+    renderCohesionChart(getCheckedChars());
+});
+
+// ====== 更新视图按钮功能 ======
+document.querySelectorAll('.update-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const chartType = btn.getAttribute('data-chart');
+        const checkedChars = getCheckedChars();
+
+        switch (chartType) {
+            case 'charCloud':
+                renderCharCloud(checkedChars);
+                break;
+            case 'barChart':
+                renderBarChart(checkedChars);
+                break;
+            case 'cohesionChart':
+                renderCohesionChart(checkedChars);
+                break;
+            case 'summaryChart':
+                renderSummaryChart(checkedChars);
+                break;
+        }
+    });
 });
 
 // ====== 下载图表图片功能 ======
@@ -1216,12 +1245,7 @@ document.getElementById('randomColorsBtn').addEventListener('click', () => {
     chinaColors.splice(0, chinaColors.length, ...newColors);
 
     // 重新渲染所有图表
-    updateCharts();
-
-    // 重新渲染网络图
-    if (charNetworkData) {
-        renderCohesionChart();
-    }
+    updateActiveChart();
 });
 
 // ====== 切换标签显示功能 ======

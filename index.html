@@ -54,13 +54,15 @@
           <button data-target="charCloud" class="active">单字云图</button>
           <button data-target="barChart">字频柱状图</button>
           <button data-target="cohesionChart">黏着度网络</button>
-          <button data-target="summaryChart">单字汇总统计</button>
+          <button data-target="summaryChart">单字黏着度汇总统计</button>
         </div>
 
         <div id="charCloud" class="chartBox active">
+          <button class="update-view-btn" data-chart="charCloud">更新视图</button>
           <button class="download-btn" data-chart="charCloud">下载图片</button>
         </div>
         <div id="barChart" class="chartBox">
+          <button class="update-view-btn" data-chart="barChart">更新视图</button>
           <button class="download-btn" data-chart="barChart">下载图片</button>
         </div>
         <div id="cohesionChart" class="chartBox">
@@ -80,17 +82,21 @@
             <button id="toggleLabelsBtn" class="control-btn">隐藏标签</button>
           </div>
           <div id="networkChartContainer">
+            <button class="update-view-btn" data-chart="cohesionChart">更新视图</button>
             <button class="download-btn" data-chart="cohesionChart">下载图片</button>
           </div>
         </div>
 
-        <!-- 新增：summaryChart支持滑动范围 -->
+        <!-- 修改：summaryChart支持滑动范围和更新按钮 -->
         <div id="summaryChart" class="chartBox">
-          <div class="range-control">
-            <label>显示范围：</label>
-            <input type="range" id="summaryRange" min="0" max="100" step="10" value="0">
+          <div class="chart-controls">
+            <div class="range-control">
+              <label>显示范围：</label>
+              <input type="range" id="summaryRange" min="0" max="100" step="10" value="0">
+            </div>
+            <button class="update-view-btn" data-chart="summaryChart">更新视图</button>
+            <button class="download-btn" data-chart="summaryChart">下载图片</button>
           </div>
-          <button class="download-btn" data-chart="summaryChart">下载图片</button>
         </div>
       </div>
     </div>
