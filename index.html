@@ -6,7 +6,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 登录模态框 -->
   <div id="loginModal">
     <div class="login-container">
       <h2>请输入访问密码</h2>
@@ -17,7 +16,6 @@
     </div>
   </div>
 
-  <!-- 主平台内容 -->
   <div id="app" style="display:none;">
     <div id="left">
       <h3>字频表</h3>
@@ -58,6 +56,7 @@
           <button data-target="cohesionChart">黏着度网络</button>
           <button data-target="summaryChart">单字汇总统计</button>
         </div>
+
         <div id="charCloud" class="chartBox active">
           <button class="download-btn" data-chart="charCloud">下载图片</button>
         </div>
@@ -84,46 +83,17 @@
             <button class="download-btn" data-chart="cohesionChart">下载图片</button>
           </div>
         </div>
+
+        <!-- 新增：summaryChart支持滑动范围 -->
         <div id="summaryChart" class="chartBox">
+          <div class="range-control">
+            <label>显示范围：</label>
+            <input type="range" id="summaryRange" min="0" max="100" step="10" value="0">
+          </div>
           <button class="download-btn" data-chart="summaryChart">下载图片</button>
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- 黏着度统计悬浮窗 -->
-  <div id="cohesionStats">
-    <div id="cohesionStatsHeader">
-      <h3>黏着度统计 - <span id="currentCenterChar"></span></h3>
-      <span id="toggleCohesion">➖</span>
-    </div>
-    <table id="cohesionStatsTable">
-      <thead>
-        <tr>
-          <th data-sort="char">相邻字 <span class="sort-indicator">↕</span></th>
-          <th data-sort="direction">方向 <span class="sort-indicator">↕</span></th>
-          <th data-sort="count">黏着次数 <span class="sort-indicator">↕</span></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <!-- 汇总统计悬浮窗 -->
-  <div id="summaryStats">
-    <div id="summaryStatsHeader">
-      <h3>单字汇总统计</h3>
-      <span id="toggleSummary">➖</span>
-    </div>
-    <table id="summaryTable">
-      <thead>
-        <tr>
-          <th>统计项</th>
-          <th>数值</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>

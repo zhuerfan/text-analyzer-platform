@@ -58,29 +58,36 @@
 
 /* 原有样式保持不变 */
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    display: flex;
-    height: 100vh;
-    position: relative;
-    overflow: hidden;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex: 1;
+  height: 100%;
 }
 
 #left, #right {
     padding: 10px;
-    overflow: auto;
 }
 
 #left {
-    width: 30%;
-    border-right: 1px solid #ccc;
+  flex: 0 0 30%;
+  min-width: 200px;
+  overflow: auto;
+  border-right: 1px solid #ccc;
 }
 
 #right {
-    width: 70%;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 #searchContainer, #detailedSearchContainer {
@@ -231,6 +238,19 @@ tr:hover {
     display: flex;
     flex-direction: column;
     height: 100%;
+}
+
+.range-control {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #ccc;
+}
+
+.range-control input[type=range] {
+  margin-left: 10px;
+  width: 200px;
 }
 
 #charCloud, #barChart, #summaryChart {

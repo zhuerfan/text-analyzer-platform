@@ -289,6 +289,8 @@ function getCheckedChars() {
 // ====== 更新图表 ======
 function updateCharts() {
     renderCharts(getCheckedChars());
+    if (charts.summaryChart) charts.summaryChart.dispose();
+    renderSummaryChart(getCheckedChars());
 }
 
 // ====== 渲染单字序列 ======
@@ -1235,6 +1237,45 @@ document.getElementById('toggleCohesion').addEventListener('click', () => {
         document.getElementById('toggleCohesion').textContent = '➕';
     }
 });
+
+// ============ 图表自适应窗口大小 ============
+window.addEventListener("resize", () => {
+  Object.values(charts).forEach(chart => chart?.resize?.());
+});
+
+// ============ 修改单字汇总统计图渲染逻辑 ============
+function renderSummaryChart(checkedChars) {
+  const container = document.getElementById("summaryChart");
+  if (!charts.summaryChart) {
+    charts.summaryChart = echarts.init(container);
+  }
+  const chart = charts.summaryChart;
+  const rangeInput = document.getElementById("summaryRange");
+
+  const data = checkedChars.map(item => ({
+    name: item.char,
+    value: item.freq
+  }));
+
+  // 每次滑动条变化时重新渲染范围数据
+  const render = () => {
+    const start = parseInt(rangeInput.value);
+    const perPage = 20;
+    const shown = data.slice(start, start + perPage);
+    chart.setOption({
+      title: { text: `单字汇总统计 (${start + 1} - ${start + shown.length})` },
+      xAxis: { type: 'category', data: shown.map(i => i.name), axisLabel: { rotate: 45 } },
+      yAxis: { type: 'value' },
+      series: [{ type: 'bar', data: shown.map(i => i.value) }],
+      tooltip: { trigger: 'axis' }
+    });
+  };
+
+  rangeInput.max = Math.max(0, data.length - 20);
+  rangeInput.oninput = render;
+  render();
+}
+
 
 // ====== 初始化相关（页面加载时的一些绑定） ======
 window.addEventListener('resize', function() {
