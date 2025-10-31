@@ -3,74 +3,636 @@
 <head>
     <meta charset="UTF-8">
     <title>单字分析与黏着度可视化</title>
+    <style>
+        /* 登录界面样式 */
+        #loginModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .login-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 300px;
+        }
+        .login-container h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .login-container input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .login-container button:hover {
+            background: #45a049;
+        }
+        .login-error, .loading {
+            display: none;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .login-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .loading {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
 
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        #app {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+        #left, #right {
+            padding: 10px;
+            overflow: auto;
+        }
+        #left {
+            width: 30%;
+            border-right: 1px solid #ccc;
+        }
+        #right {
+            width: 70%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        #searchContainer, #detailedSearchContainer {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        #searchContainer input, #detailedSearchInput {
+            flex: 1;
+            padding: 5px;
+        }
+        #detailed {
+            flex: 1;
+            overflow: auto;
+            border-bottom: 1px solid #ccc;
+            padding: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 5px;
+            text-align: left;
+        }
+        tr:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+        .highlightRight {
+            border: 2px solid red;
+            border-radius: 8px;
+            padding: 2px;
+            display: inline-block;
+            background-color: #fff0f0;
+        }
+        .normalWord {
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            padding: 2px;
+            display: inline-block;
+            margin-right: 2px;
+            margin-bottom: 2px;
+        }
+        .highlightRow {
+            background-color: #ffcccc !important;
+        }
+        .highlightSelected {
+            border: 2px solid blue !important;
+            border-radius: 8px;
+            background-color: #e0f0ff;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            border-radius: 5px;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 300px;
+        }
+        #clearHighlights {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 101;
+            font-weight: bold;
+        }
+        #clearHighlights:hover {
+            background: #e0e0f0;
+        }
+        #detailedContent table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        #detailedContent td, #detailedContent th {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+        }
+        /* ECharts 容器 (tab) */
+        #charts {
+            flex: 1;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        #chartTabs {
+            display: flex;
+            border-bottom: 1px solid #ccc;
+            background: #f9f9f9;
+            z-index: 10;
+        }
+        #chartTabs button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #f5f5f5;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        #chartTabs button.active {
+            background: #d0e5ff;
+            font-weight: bold;
+            border-bottom: 2px solid #1890ff;
+        }
+        #chartTabs button:hover {
+            background: #e8f4ff;
+        }
+        .chartBox {
+            flex: 1;
+            display: none;
+            overflow-x: auto;
+            position: relative;
+        }
+        .chartBox.active {
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* 添加这行确保高度 */
+        }
+
+        #charCloud, #barChart, #summaryChart {
+            height: 100%;
+            min-height: 400px; /* 确保最小高度 */
+        }
+
+        #networkChartContainer {
+            height: 100%;
+            min-height: 400px;
+        }
+        /* 网络图控制面板样式优化 */
+        #networkControlPanel {
+            padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 0 10px;
+        }
+        .control-label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+        }
+        .control-slider {
+            width: 100px;
+        }
+        .control-value {
+            font-size: 12px;
+            color: #333;
+            min-width: 30px;
+            text-align: center;
+        }
+        /* 黏着度统计悬浮窗 */
+        #cohesionStats {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 60%;
+            width: 400px;
+            overflow-y: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1500; /* 提高z-index确保在全屏模式下可见 */
+            display: none;
+        }
+        #cohesionStatsHeader {
+            cursor: move;
+            background: #eee;
+            padding: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        #toggleCohesion {
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #cohesionStatsTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        #cohesionStatsTable th, #cohesionStatsTable td {
+            border: 1px solid #ccc;
+            padding: 4px 6px;
+            text-align: left;
+        }
+        #cohesionStatsTable th {
+            background-color: #f0f0f0;
+            position: sticky;
+            top: 0;
+            cursor: pointer;
+        }
+        #cohesionStatsTable th:hover {
+            background-color: #e0e0e0;
+        }
+        /* 按钮样式 */
+        button {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #e0e0e0;
+        }
+        input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #networkChartContainer {
+            flex: 1;
+            min-height: 400px;
+            position: relative;
+        }
+        /* 全屏按钮 */
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            right: 130px;
+            z-index: 102;
+            padding: 5px 10px;
+        }
+        /* 全屏样式优化 */
+        .fullscreen #right {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            background: white;
+            padding: 0;
+            margin: 0;
+        }
+
+        .fullscreen #detailed {
+            display: none !important;
+        }
+
+        .fullscreen #charts {
+            flex: 1;
+            margin-top: 0;
+            height: 100%;
+        }
+
+        .fullscreen #chartTabs {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 101;
+        }
+
+        .fullscreen .chartBox {
+            position: absolute;
+            top: 40px; /* 留出标签栏的空间 */
+            left: 0;
+            width: 100%;
+            height: calc(100% - 40px);
+        }
+
+        .fullscreen #networkChartContainer {
+            height: 100%;
+        }
+
+        .fullscreen #clearHighlights,
+        .fullscreen #fullscreenBtn {
+            z-index: 102;
+            position: fixed;
+        }
+
+        .fullscreen #clearHighlights {
+            top: 50px;
+            right: 10px;
+        }
+
+        .fullscreen #fullscreenBtn {
+            top: 10px;
+            right: 10px;
+        }
+
+        .fullscreen #cohesionStats,
+        .fullscreen #summaryStats {
+            position: fixed; /* 保持固定定位 */
+            z-index: 3000; /* 在全屏模式下进一步提高z-index */
+        }
+
+        .fullscreen #cohesionStats {
+            top: 120px; /* 稍微下移，避免与全屏按钮重叠 */
+            right: 30px;
+        }
+
+        .fullscreen #summaryStats {
+            bottom: 30px;
+            right: 30px;
+        }
+
+        /* 修改下载按钮样式，确保在最前面 */
+        .download-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000; /* 提高z-index确保在最前面 */
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .download-btn:hover {
+            background: #e0e0e0;
+        }
+
+        /* 控制面板按钮样式 */
+        .control-btn {
+            margin: 0 5px;
+        }
+
+        /* 排序指示器 */
+        .sort-indicator {
+            margin-left: 5px;
+            font-size: 10px;
+        }
+
+        /* 单字样式 */
+        .single-char {
+            font-size: 16px;
+            margin: 1px;
+            padding: 2px;
+            display: inline-block;
+            min-width: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .single-char:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.1);
+        }
+
+        /* 汇总统计悬浮窗 */
+        #summaryStats {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            max-height: 40%;
+            width: 300px;
+            overflow-y: auto;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            z-index: 2000; /* 提高z-index确保在全屏模式下可见 */
+        }
+        #summaryStatsHeader {
+            cursor: move;
+            background: #eee;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #summaryStats h3 {
+            margin: 0;
+            font-size: 14px;
+        }
+        #toggleSummary {
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* 文本行样式 */
+        .text-line {
+            margin-bottom: 10px;
+            line-height: 1.8;
+        }
+        .line-number {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+            margin-right: 10px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* 汇总统计图表控制面板 */
+        .chart-controls {
+            padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .range-control label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        /* 更新视图按钮 */
+        .update-view-btn {
+            position: absolute;
+            top: 10px;
+            right: 80px;
+            z-index: 1000;
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .update-view-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
 </head>
 <body>
-    <div id="left">
-        <h3>字频表</h3>
-        <div id="searchContainer">
-            <input type="text" id="searchInput" placeholder="输入字快速定位（左侧）">
-            <button id="searchBtn">搜索</button>
+    <!-- 登录界面 -->
+    <div id="loginModal">
+        <div class="login-container">
+            <h2>请输入访问密码</h2>
+            <input type="password" id="passwordInput" placeholder="输入访问密码">
+            <button id="loginBtn">登录</button>
+            <div class="login-error" id="loginError">密码错误，请重试。</div>
+            <div class="loading" id="loading">正在验证中，请稍候...</div>
         </div>
-        <table id="charFreqTable">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="selectAll"></th>
-                    <th>单字</th>
-                    <th>频率</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
     </div>
-    <div id="right">
-        <div id="info"></div>
-        <button id="fullscreenBtn">全屏</button>
-        <button id="clearHighlights">取消所有高亮</button>
 
-        <div id="detailed">
-            <h3>单字序列</h3>
-            <div id="detailedSearchContainer">
-                <input type="text" id="detailedSearchInput" placeholder="输入字快速定位（右侧）">
-                <button id="detailedSearchBtn">搜索</button>
+    <!-- 主应用界面 -->
+    <div id="app">
+        <div id="left">
+            <h3>字频表</h3>
+            <div id="searchContainer">
+                <input type="text" id="searchInput" placeholder="输入字快速定位（左侧）">
+                <button id="searchBtn">搜索</button>
             </div>
-            <div id="detailedContent"></div>
+            <table id="charFreqTable">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>单字</th>
+                        <th>频率</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
-        <div id="charts">
-            <div id="chartTabs">
-                <button data-target="charCloud" class="active">单字云图</button>
-                <button data-target="barChart">字频柱状图</button>
-                <button data-target="cohesionChart">黏着度网络</button>
-                <button data-target="summaryChart">单字汇总统计</button>
-            </div>
-            <div id="charCloud" class="chartBox active">
-                <button class="download-btn" data-chart="charCloud">下载图片</button>
-            </div>
-            <div id="barChart" class="chartBox" style="overflow-x: auto;">
-                <button class="download-btn" data-chart="barChart">下载图片</button>
-            </div>
-            <div id="cohesionChart" class="chartBox">
-                <div id="networkControlPanel">
-                    <div class="control-group">
-                        <span class="control-label">节点尺寸:</span>
-                        <input type="range" id="nodeSizeSlider" class="control-slider" min="0.1" max="3" step="0.1" value="1">
-                        <span id="nodeSizeValue" class="control-value">1.0</span>
-                    </div>
-                    <div class="control-group">
-                        <span class="control-label">边宽:</span>
-                        <input type="range" id="edgeWidthSlider" class="control-slider" min="0.1" max="3" step="0.1" value="1">
-                        <span id="edgeWidthValue" class="control-value">1.0</span>
-                    </div>
-                    <button id="updateNetwork" class="control-btn">更新网络</button>
-                    <button id="randomColorsBtn" class="control-btn">随机配色</button>
-                    <button id="toggleLabelsBtn" class="control-btn">隐藏标签</button>
+        <div id="right">
+            <div id="info"></div>
+            <button id="fullscreenBtn">全屏</button>
+            <button id="clearHighlights">取消所有高亮</button>
+
+            <div id="detailed">
+                <h3>单字序列</h3>
+                <div id="detailedSearchContainer">
+                    <input type="text" id="detailedSearchInput" placeholder="输入字快速定位（右侧）">
+                    <button id="detailedSearchBtn">搜索</button>
                 </div>
-                <div id="networkChartContainer">
-                    <button class="download-btn" data-chart="cohesionChart">下载图片</button>
-                </div>
+                <div id="detailedContent"></div>
             </div>
-            <div id="summaryChart" class="chartBox">
-                <button class="download-btn" data-chart="summaryChart">下载图片</button>
+            <div id="charts">
+                <div id="chartTabs">
+                    <button data-target="charCloud" class="active">单字云图</button>
+                    <button data-target="barChart">字频柱状图</button>
+                    <button data-target="cohesionChart">黏着度网络</button>
+                    <button data-target="summaryChart">单字黏着度统计</button>
+                </div>
+                <div id="charCloud" class="chartBox active">
+                    <button class="download-btn" data-chart="charCloud">下载图片</button>
+                </div>
+                <div id="barChart" class="chartBox" style="overflow-x: auto;">
+                    <button class="download-btn" data-chart="barChart">下载图片</button>
+                </div>
+                <div id="cohesionChart" class="chartBox">
+                    <div id="networkControlPanel">
+                        <div class="control-group">
+                            <span class="control-label">节点尺寸:</span>
+                            <input type="range" id="nodeSizeSlider" class="control-slider" min="0.1" max="3" step="0.1" value="1">
+                            <span id="nodeSizeValue" class="control-value">1.0</span>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-label">边宽:</span>
+                            <input type="range" id="edgeWidthSlider" class="control-slider" min="0.1" max="3" step="0.1" value="1">
+                            <span id="edgeWidthValue" class="control-value">1.0</span>
+                        </div>
+                        <button id="updateNetwork" class="control-btn">更新网络</button>
+                        <button id="randomColorsBtn" class="control-btn">随机配色</button>
+                        <button id="toggleLabelsBtn" class="control-btn">隐藏标签</button>
+                    </div>
+                    <div id="networkChartContainer">
+                        <button class="download-btn" data-chart="cohesionChart">下载图片</button>
+                    </div>
+                </div>
+                <div id="summaryChart" class="chartBox">
+                    <div class="chart-controls">
+                        <div class="range-control">
+                            <label>显示范围：</label>
+                            <input type="range" id="summaryRange" min="0" max="100" step="10" value="0">
+                        </div>
+                        <button class="update-view-btn" data-chart="summaryChart">更新视图</button>
+                        <button class="download-btn" data-chart="summaryChart">下载图片</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -97,15 +659,17 @@
             <h3>单字汇总统计</h3>
             <span id="toggleSummary">➖</span>
         </div>
-        <table id="summaryTable">
-            <thead>
-                <tr>
-                    <th>统计项</th>
-                    <th>数值</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div id="summaryStatsContent">
+            <table id="summaryTable">
+                <thead>
+                    <tr>
+                        <th>统计项</th>
+                        <th>数值</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2/dist/echarts-wordcloud.min.js"></script>
@@ -129,6 +693,45 @@
         let sortDirection = 'desc'; // 排序方向
         let nodeSizeScale = 1.0; // 节点尺寸比例
         let edgeWidthScale = 1.0; // 边宽比例
+        let summaryRangeValue = 0; // 汇总统计显示范围
+
+        // ====== 登录功能 ======
+        document.getElementById('loginBtn').addEventListener('click', handleLogin);
+        document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+        });
+
+        function handleLogin() {
+            const password = document.getElementById('passwordInput').value;
+            const loginError = document.getElementById('loginError');
+            const loading = document.getElementById('loading');
+
+            if (!password) {
+                loginError.textContent = '请输入密码';
+                loginError.style.display = 'block';
+                return;
+            }
+
+            // 显示加载中
+            loginError.style.display = 'none';
+            loading.style.display = 'block';
+
+            // 模拟密码验证 - 实际应用中应替换为真实的验证逻辑
+            setTimeout(() => {
+                // 这里假设密码是"password"，实际应用中应该从后端验证
+                if (password === 'password') {
+                    document.getElementById('loginModal').style.display = 'none';
+                    document.getElementById('app').style.display = 'flex';
+                    loadData();
+                } else {
+                    loginError.textContent = '密码错误，请重试。';
+                    loginError.style.display = 'block';
+                }
+                loading.style.display = 'none';
+            }, 1000);
+        }
 
         // ====== 本地存储勾选状态 ======
         function saveCheckedState() {
@@ -212,7 +815,7 @@
 
             } catch (error) {
                 console.error('Failed to load data:', error);
-                alert('数据加载失败，请检查：\n1. 后端服务器是否运行\n2. 控制台错误信息\n3. 数据文件是否存在');
+                alert('数据加载失败，请检查：\n1. 后端服务器是否运行\nn2. 控制台错误信息\nn3. 数据文件是否存在');
             }
         }
 
@@ -541,6 +1144,29 @@
                     updateNetworkScales();
                 });
             }
+
+            // 汇总统计范围滑块
+            const summaryRange = document.getElementById('summaryRange');
+            if (summaryRange) {
+                summaryRange.addEventListener('input', function() {
+                    summaryRangeValue = parseInt(this.value);
+                    if (charts.summaryChart) {
+                        renderSummaryChart();
+                    }
+                });
+            }
+
+            // 更新视图按钮
+            document.querySelectorAll('.update-view-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const chartType = this.getAttribute('data-chart');
+                    if (chartType === 'summaryChart') {
+                        renderSummaryChart();
+                    } else if (charts[chartType]) {
+                        charts[chartType].resize();
+                    }
+                });
+            });
         });
 
         // ====== ECharts 图表渲染 ======
@@ -615,7 +1241,7 @@
                 renderCohesionChart();
             }
 
-            // 汇总统计图
+            // 单字黏着度统计图
             if (document.getElementById('summaryChart').classList.contains('active')) {
                 renderSummaryChart();
             }
@@ -774,28 +1400,44 @@
             });
         }
 
-        // ====== 渲染汇总统计图 ======
+        // ====== 渲染单字黏着度统计图 ======
         function renderSummaryChart() {
             if (!charSummaryData || charSummaryData.length === 0) return;
 
             charts.summaryChart = echarts.init(document.getElementById('summaryChart'));
 
+            // 获取选中的字符
+            const checkedChars = getCheckedChars().map(item => item.char);
+
+            // 过滤出选中的字符的汇总数据
+            const filteredData = charSummaryData.filter(item => checkedChars.includes(item.char));
+
             // 按总黏着度排序
-            const sortedData = charSummaryData.slice().sort((a, b) => b.total_cohesion - a.total_cohesion).slice(0, 20);
+            const sortedData = filteredData.slice().sort((a, b) => b.total_cohesion - a.total_cohesion);
+
+            // 根据滑块值确定显示范围
+            const startIndex = Math.floor(sortedData.length * (summaryRangeValue / 100));
+            const displayData = sortedData.slice(startIndex);
 
             const option = {
-                title: { text: '单字黏着度汇总统计（前20）', left: 'center' },
+                title: {
+                    text: '单字黏着度统计',
+                    left: 'center',
+                    top: '10px'  // 增加顶部间距避免与图例重叠
+                },
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' }
                 },
                 legend: {
-                    data: ['左邻黏着度', '右邻黏着度', '总黏着度']
+                    data: ['左邻黏着度', '右邻黏着度', '总黏着度'],
+                    top: '40px'  // 图例下移，避免与标题重叠
                 },
                 grid: {
                     left: '3%',
                     right: '4%',
                     bottom: '3%',
+                    top: '80px',  // 增加顶部空间
                     containLabel: true
                 },
                 xAxis: {
@@ -803,7 +1445,7 @@
                 },
                 yAxis: {
                     type: 'category',
-                    data: sortedData.map(d => d.char)
+                    data: displayData.map(d => d.char)
                 },
                 series: [
                     {
@@ -811,14 +1453,14 @@
                         type: 'bar',
                         stack: 'total',
                         emphasis: { focus: 'series' },
-                        data: sortedData.map(d => d.left_cohesion_count)
+                        data: displayData.map(d => d.left_cohesion_count)
                     },
                     {
                         name: '右邻黏着度',
                         type: 'bar',
                         stack: 'total',
                         emphasis: { focus: 'series' },
-                        data: sortedData.map(d => d.right_cohesion_count)
+                        data: displayData.map(d => d.right_cohesion_count)
                     },
                     {
                         name: '总黏着度',
@@ -827,7 +1469,7 @@
                             show: true,
                             position: 'right'
                         },
-                        data: sortedData.map(d => d.total_cohesion)
+                        data: displayData.map(d => d.total_cohesion)
                     }
                 ]
             };
@@ -837,7 +1479,7 @@
             charts.summaryChart.off('click');
             charts.summaryChart.on('click', params => {
                 if (params.componentType === 'series' && params.seriesType === 'bar') {
-                    const char = sortedData[params.dataIndex].char;
+                    const char = displayData[params.dataIndex].char;
                     highlightCharFromLeft(char);
                     showCohesionStats(char);
                 }
@@ -1231,12 +1873,12 @@
 
         // ====== 汇总统计悬浮窗展开/收起 ======
         document.getElementById('toggleSummary').addEventListener('click', () => {
-            const table = document.querySelector('#summaryTable');
-            if (table.style.display === 'none') {
-                table.style.display = 'table';
+            const content = document.getElementById('summaryStatsContent');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
                 document.getElementById('toggleSummary').textContent = '➖';
             } else {
-                table.style.display = 'none';
+                content.style.display = 'none';
                 document.getElementById('toggleSummary').textContent = '➕';
             }
         });
@@ -1252,9 +1894,6 @@
                 document.getElementById('toggleCohesion').textContent = '➕';
             }
         });
-
-        // 初始化加载数据
-        loadData();
 
         // 窗口大小调整时重新渲染图表
         window.addEventListener('resize', function() {
